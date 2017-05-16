@@ -132,7 +132,7 @@ runClientWithRespStream
     -- ^ Connection options
     -> Headers
     -- ^ Custom headers to send
-    -> (Connection -> ResponseHead -> IO a)
+    -> (Connection -> RequestHead -> ResponseHead -> IO a)
     -- ^ Client application
     -> IO a
 runClientWithRespStream stream host path opts customHeaders app = do
@@ -157,7 +157,7 @@ runClientWithRespStream stream host path opts customHeaders app = do
         , connectionParse     = parse
         , connectionWrite     = write
         , connectionSentClose = sentRef
-        } response
+        } request response
   where
     protocol = defaultProtocol  -- TODO
     bHost    = T.encodeUtf8 $ T.pack host
