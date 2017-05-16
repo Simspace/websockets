@@ -7,6 +7,7 @@ module Network.WebSockets.Client
     , runClientWith
     , runClientWithSocket
     , runClientWithStream
+    , runClientWithRespStream
     ) where
 
 
@@ -118,6 +119,51 @@ runClientWithStream stream host path opts customHeaders app = do
     protocol = defaultProtocol  -- TODO
     bHost    = T.encodeUtf8 $ T.pack host
     bPath    = T.encodeUtf8 $ T.pack path
+
+--------------------------------------------------------------------------------
+runClientWithRespStream
+    :: Stream
+    -- ^ Stream
+    -> String
+    -- ^ Host
+    -> String
+    -- ^ Path
+    -> ConnectionOptions
+    -- ^ Connection options
+    -> Headers
+    -- ^ Custom headers to send
+    -> (Connection -> ResponseHead -> IO a)
+    -- ^ Client application
+    -> IO a
+runClientWithRespStream stream host path opts customHeaders app = do
+    -- Create the request and send it
+    request    <- createRequest protocol bHost bPath False customHeaders
+    Stream.write stream (Builder.toLazyByteString $ encodeRequestHead request)
+    mbResponse <- Stream.parse stream decodeResponseHead
+    response   <- case mbResponse of
+        Just response -> return response
+        Nothing       -> throwIO $ OtherHandshakeException $
+            "Network.WebSockets.Client.runClientWithStream: no handshake " ++
+            "response from server"
+    void $ either throwIO return $ finishResponse protocol request response
+    parse        <- decodeMessages protocol stream
+    write        <- encodeMessages protocol ClientConnection stream
+    sentRef      <- newIORef False
+
+    app Connection
+        { connectionOptions   = opts
+        , connectionType      = ClientConnection
+        , connectionProtocol  = protocol
+        , connectionParse     = parse
+        , connectionWrite     = write
+        , connectionSentClose = sentRef
+        } response
+  where
+    protocol = defaultProtocol  -- TODO
+    bHost    = T.encodeUtf8 $ T.pack host
+    bPath    = T.encodeUtf8 $ T.pack path
+
+
 
 
 --------------------------------------------------------------------------------
