@@ -71,6 +71,7 @@ module Network.WebSockets
     , runClientWith
     , runClientWithSocket
     , runClientWithStream
+    , runClientWithRespStream
 
       -- * Utilities
     , forkPingThread
